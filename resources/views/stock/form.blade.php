@@ -24,7 +24,12 @@ document.addEventListener('DOMContentLoaded', function () {
     const product = document.getElementById('product_id');
     const price = document.getElementById('price');
 
-    const formatMoney = value => { const raw = String(value ?? '').trim(); if (/^\\d+\\.\\d{2}$/.test(raw)) return Number(raw).toLocaleString('id-ID', {maximumFractionDigits: 2}); const digits = raw.replace(/\\D/g, ''); return digits ? Number(digits).toLocaleString('id-ID') : ''; };
+    const formatMoney = value => {
+        const raw = String(value ?? '').trim();
+        if (/^\d+\.\d{2}$/.test(raw)) return Number(raw).toLocaleString('id-ID', {maximumFractionDigits: 2});
+        const digits = raw.replace(/\D/g, '');
+        return digits ? Number(digits).toLocaleString('id-ID') : '';
+    };
     function fillProductPrice() {
         const option = product.options[product.selectedIndex];
         price.value = option && option.dataset.price !== undefined ? formatMoney(option.dataset.price) : '';

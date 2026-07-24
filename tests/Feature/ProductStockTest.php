@@ -20,7 +20,6 @@ class ProductStockTest extends TestCase
 
         $response = $this->actingAs($user)->post(route('products.store'), [
             'name' => 'Produk Uji',
-            'barcode' => 'BAR-001',
             'code' => 'PRD-001',
             'sku' => 'SKU-001',
             'warehouse_id' => $warehouse->id,
@@ -34,6 +33,7 @@ class ProductStockTest extends TestCase
 
         $response->assertRedirect(route('products.index'));
         $product = Product::where('sku', 'SKU-001')->firstOrFail();
+        $this->assertStringStartsWith('AUTO-', $product->barcode);
         $this->assertSame(25, $product->current_stock);
         $this->assertDatabaseHas('stock_histories', [
             'product_id' => $product->id,

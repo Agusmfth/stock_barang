@@ -3,7 +3,7 @@
 @section('content')
 @php
 $fields = match($resource) {
- 'products' => ['Kode Barang'=>$row->code,'SKU'=>$row->sku,'Barcode'=>$row->barcode,'Kategori'=>$row->category,'Merek'=>$row->brand,'Supplier'=>$row->supplier?->name,'Gudang'=>$row->warehouse?->name,'Lokasi Rak'=>$row->rack_location,'Satuan'=>$row->unit,'Stok Minimum'=>$row->minimum_stock.' '.$row->unit,'Harga Modal'=>'Rp '.number_format($row->cost_price,0,',','.'),'Harga Jual'=>'Rp '.number_format($row->selling_price,0,',','.'),'Catatan'=>$row->notes],
+ 'products' => ['Kode Barang'=>$row->code,'SKU'=>$row->sku,'Kategori'=>$row->category,'Merek'=>$row->brand,'Supplier'=>$row->supplier?->name,'Gudang'=>$row->warehouse?->name,'Lokasi Rak'=>$row->rack_location,'Satuan'=>$row->unit,'Stok Minimum'=>$row->minimum_stock.' '.$row->unit,'Harga Modal'=>'Rp '.number_format($row->cost_price,0,',','.'),'Harga Jual'=>'Rp '.number_format($row->selling_price,0,',','.'),'Catatan'=>$row->notes],
  'suppliers' => ['PIC'=>$row->pic,'Email'=>$row->email,'Telepon'=>$row->phone,'Kota'=>$row->city,'NPWP'=>$row->npwp,'Alamat'=>$row->address,'Catatan'=>$row->notes,'Jumlah Produk'=>($row->products_count??0).' produk'],
  'warehouses' => ['PIC'=>$row->pic,'Alamat'=>$row->address,'Jumlah Produk'=>($row->products_count??0).' produk'],
  default => ['Cabang'=>$row->branch,'Area'=>$row->area,'Email'=>$row->email,'Telepon'=>$row->phone,'Status'=>ucfirst($row->status)],

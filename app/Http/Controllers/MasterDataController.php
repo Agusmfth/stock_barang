@@ -9,6 +9,7 @@ use App\Models\Supplier;
 use App\Models\Warehouse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class MasterDataController extends Controller
@@ -30,7 +31,6 @@ class MasterDataController extends Controller
         return match ($class) {
             Product::class => [
                 'name' => 'required|max:150',
-                'barcode' => ['required', 'max:100', Rule::unique('products')->ignore($id)],
                 'code' => ['required', 'max:50', Rule::unique('products')->ignore($id)],
                 'sku' => ['required', 'max:50', Rule::unique('products')->ignore($id)],
                 'warehouse_id' => 'required|exists:warehouses,id',
@@ -108,6 +108,8 @@ class MasterDataController extends Controller
             'rows' => $query->latest()->paginate(12)->withQueryString(),
             'title' => $title,
             'resource' => explode('.', $request->route()->getName())[0],
+            'suppliers' => $class === Product::class ? Supplier::orderBy('name')->get() : collect(),
+            'warehouses' => $class === Product::class ? Warehouse::orderBy('name')->get() : collect(),
         ]);
     }
 
@@ -136,6 +138,10 @@ class MasterDataController extends Controller
         [$class] = $this->meta($request);
         $this->normalizeMoney($request);
         $data = $request->validate($this->rules($class));
+
+        if ($class === Product::class) {
+            $data['barcode'] = 'AUTO-'.Str::uuid();
+        }
 
         DB::transaction(function () use ($class, $data, $request): void {
             $row = $class::create($data + $this->optionalFields($request));
