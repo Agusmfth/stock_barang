@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Models\Warehouse;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
 
 class DatabaseSeeder extends Seeder
 {
@@ -17,6 +18,9 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         Warehouse::firstOrCreate(['name' => 'Gudang Pusat'], ['address' => 'Jakarta']);
-        User::firstOrCreate(['email' => 'admin@stockflow.test'], ['name' => 'Super Admin', 'password' => 'password', 'role' => 'Super Admin']);
+        User::updateOrCreate(
+            ['email' => 'admin@stockflow.test'],
+            ['name' => 'Super Admin', 'password' => Hash::make('password'), 'role' => 'Super Admin', 'is_active' => true]
+        );
     }
 }

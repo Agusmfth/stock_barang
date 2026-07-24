@@ -1,0 +1,17 @@
+@extends('layouts.app')
+@section('title','Detail '.$title)
+@section('content')
+@php
+$fields = match($resource) {
+ 'products' => ['Kode Barang'=>$row->code,'SKU'=>$row->sku,'Barcode'=>$row->barcode,'Kategori'=>$row->category,'Merek'=>$row->brand,'Supplier'=>$row->supplier?->name,'Gudang'=>$row->warehouse?->name,'Lokasi Rak'=>$row->rack_location,'Satuan'=>$row->unit,'Stok Minimum'=>$row->minimum_stock.' '.$row->unit,'Harga Modal'=>'Rp '.number_format($row->cost_price,0,',','.'),'Harga Jual'=>'Rp '.number_format($row->selling_price,0,',','.'),'Catatan'=>$row->notes],
+ 'suppliers' => ['PIC'=>$row->pic,'Email'=>$row->email,'Telepon'=>$row->phone,'Kota'=>$row->city,'NPWP'=>$row->npwp,'Alamat'=>$row->address,'Catatan'=>$row->notes,'Jumlah Produk'=>($row->products_count??0).' produk'],
+ 'warehouses' => ['PIC'=>$row->pic,'Alamat'=>$row->address,'Jumlah Produk'=>($row->products_count??0).' produk'],
+ default => ['Cabang'=>$row->branch,'Area'=>$row->area,'Email'=>$row->email,'Telepon'=>$row->phone,'Status'=>ucfirst($row->status)],
+};
+@endphp
+<div class="d-flex flex-wrap justify-content-between gap-2 mb-3"><a class="btn btn-light" href="{{route($resource.'.index')}}"><i class="fa-solid fa-arrow-left me-2"></i>Kembali</a><a class="btn btn-primary" href="{{route($resource.'.edit',$row)}}"><i class="fa-regular fa-pen-to-square me-2"></i>Ubah Data</a></div>
+<div class="row g-4"><div class="col-lg-4"><div class="card p-4 h-100"><div class="d-flex align-items-center gap-3"><div class="avatar" style="width:58px;height:58px;font-size:21px">{{strtoupper(substr($row->name,0,1))}}</div><div><h5 class="fw-bold mb-1">{{$row->name}}</h5><span class="badge rounded-pill badge-soft">{{$title}}</span></div></div>@if($resource==='products')<hr><div class="d-flex justify-content-between align-items-end"><div><small class="text-secondary d-block">Stok saat ini</small><b class="fs-3">{{$row->current_stock}}</b> {{$row->unit}}</div><span class="badge rounded-pill {{$row->current_stock<=$row->minimum_stock?'text-bg-danger':'badge-soft'}}">{{$row->current_stock<=$row->minimum_stock?'Stok Rendah':'Stok Aman'}}</span></div>@else<hr><small class="text-secondary">Terdaftar sejak</small><b class="d-block mt-1">{{$row->created_at->translatedFormat('d F Y')}}</b>@endif</div></div>
+<div class="col-lg-8"><div class="card"><div class="card-header bg-white p-4"><div class="section-card-title">Informasi {{$title}}</div><small class="text-secondary">Rincian data yang tersimpan dalam sistem</small></div><div class="card-body p-4"><div class="row g-4">@foreach($fields as $label=>$value)<div class="col-md-6"><small class="text-secondary d-block mb-1">{{$label}}</small><div class="fw-semibold">{{$value?:'-'}}</div></div>@endforeach</div></div></div></div>
+@if($resource==='products')<div class="col-12"><div class="card"><div class="card-header bg-white p-4"><div class="section-card-title">Pergerakan Stok Terakhir</div></div><div class="table-responsive"><table class="table"><thead><tr><th>Waktu</th><th>Aktivitas</th><th>Masuk</th><th>Keluar</th><th>Sisa</th></tr></thead><tbody>@forelse($row->histories as $history)<tr><td>{{$history->occurred_at->format('d M Y, H:i')}}</td><td>{{$history->activity}}</td><td class="text-success">{{$history->quantity_in?:'-'}}</td><td class="text-danger">{{$history->quantity_out?:'-'}}</td><td class="fw-bold">{{$history->balance}}</td></tr>@empty<tr><td colspan="5" class="text-center py-4 text-secondary">Belum ada pergerakan stok.</td></tr>@endforelse</tbody></table></div></div></div>@endif
+</div>
+@endsection
