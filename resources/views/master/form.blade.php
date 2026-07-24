@@ -3,7 +3,7 @@
 <script>
 document.addEventListener('DOMContentLoaded',function(){
  const form=document.querySelector('form'); const fields=[...document.querySelectorAll('[data-money-input]')];
- const format=v=>{const d=String(v||'').replace(/\D/g,'');return d?Number(d).toLocaleString('id-ID'):''};
+ const format=v=>{const raw=String(v??'').trim();if(/^\\d+\\.\\d{2}$/.test(raw))return Number(raw).toLocaleString('id-ID',{maximumFractionDigits:2});const d=raw.replace(/\\D/g,'');return d?Number(d).toLocaleString('id-ID'):''};
  fields.forEach(f=>{f.value=format(f.value);f.addEventListener('input',()=>{const p=f.selectionStart;f.value=format(f.value);f.setSelectionRange(f.value.length,f.value.length)})});
  form.addEventListener('submit',()=>fields.forEach(f=>{f.value=f.value.replace(/\./g,'').replace(/,/g, '.')}));
 });
