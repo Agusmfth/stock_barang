@@ -18,5 +18,5 @@
         </form>
         <small class="text-secondary">Menampilkan {{$paginator->firstItem() ?? 0}}–{{$paginator->lastItem() ?? 0}} dari {{number_format($paginator->total(),0,',','.')}} data</small>
     </div>
-    @if($paginator->hasPages())<div>{{$paginator->onEachSide(1)->links()}}</div>@endif
+    @if($paginator->hasPages())<div>{{$paginator->onEachSide(1)->links('vendor.pagination.table-bootstrap')}}</div>@endif
 </div>
