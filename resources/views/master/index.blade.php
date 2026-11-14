@@ -13,7 +13,7 @@
 @php($useOld = (string) old('_editing_id') === (string) $row->id)
 <div class="modal fade" id="editProduct{{$row->id}}" tabindex="-1" aria-hidden="true">
  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable"><div class="modal-content border-0" style="border-radius:16px">
-  <form method="post" action="{{route('products.update',$row)}}">@csrf @method('put')
+  <form class="modal-scroll-form" method="post" action="{{route('products.update',$row)}}">@csrf @method('put')
    <input type="hidden" name="_editing_id" value="{{$row->id}}">
    <div class="modal-header border-0 px-4 pt-4"><div><h5 class="modal-title fw-bold">Update Produk</h5><small class="text-secondary">Perbarui informasi {{$row->name}}.</small></div><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
    <div class="modal-body px-4"><div class="row g-3">

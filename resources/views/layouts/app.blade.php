@@ -21,11 +21,11 @@
             .topbar{height:64px;padding:0 12px}
             .sidebar-backdrop.active{display:block;position:fixed;inset:0;background:#100d2c88;z-index:1035}
             .modal-dialog{margin:.5rem auto}
-            .modal-content{max-height:calc(100vh - 1rem);max-height:calc(100dvh - 1rem)}
-            .modal-body{overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
-            .modal-dialog-scrollable{height:calc(100% - 1rem)}
-            .modal-dialog-scrollable .modal-content{max-height:calc(100vh - 1rem);max-height:calc(100dvh - 1rem);min-height:0}
-            .modal-dialog-scrollable .modal-body{min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+            .modal-dialog-scrollable{height:calc(100% - 1rem);min-height:0}
+            .modal-dialog-scrollable .modal-content{height:100%;max-height:calc(100vh - 1rem);max-height:calc(100dvh - 1rem);min-height:0;overflow:hidden}
+            .modal-scroll-form{display:flex;flex:1 1 auto;flex-direction:column;min-height:0;overflow:hidden}
+            .modal-scroll-form .modal-header,.modal-scroll-form .modal-footer{flex:0 0 auto}
+            .modal-scroll-form .modal-body{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
             .table-responsive{-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
         }
     </style>
