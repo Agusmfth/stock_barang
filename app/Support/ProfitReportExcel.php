@@ -26,20 +26,17 @@ class ProfitReportExcel
         $detailHeaderRow = $rowNumber;
         $rows[] = $this->row($rowNumber++, [['RINCIAN PENJUALAN', 's' => 5]]);
         $detailHeaderRow++;
-        $rows[] = $this->row($rowNumber++, array_map(fn ($label) => [$label, 's' => 6], ['Tanggal', 'No. Transaksi', 'Kasir', 'Produk', 'Qty', 'Omzet (Rp)', 'Modal (Rp)', 'Laba (Rp)']));
+        $rows[] = $this->row($rowNumber++, array_map(fn ($label) => [$label, 's' => 6], ['Tanggal', 'Jenis', 'No. Transaksi', 'Kasir', 'Produk', 'Qty', 'Omzet (Rp)', 'Modal (Rp)', 'Laba (Rp)']));
         foreach ($data['details'] as $detail) {
-            $transaction = $detail['transaction'];
-            $item = $detail['item'];
-            $reference = $transaction->reference_no ?: 'PJ-'.str_pad((string) $transaction->id, 6, '0', STR_PAD_LEFT);
             $rows[] = $this->row($rowNumber++, [
-                [$transaction->transaction_date->format('d/m/Y')], [$reference], [$transaction->user?->name ?? 'User dihapus'],
-                [$item->product?->name ?? 'Produk dihapus'], [$item->qty, 'n' => true], [$detail['revenue'], 'n' => true, 's' => 3],
+                [$detail['date']->format('d/m/Y')], [$detail['kind']], [$detail['reference']], [$detail['cashier']],
+                [$detail['product']], [$detail['qty'], 'n' => true], [$detail['revenue'], 'n' => true, 's' => 3],
                 [$detail['cost'], 'n' => true, 's' => 3], [$detail['profit'], 'n' => true, 's' => 4],
             ]);
         }
         $lastRow = max($detailHeaderRow, $rowNumber - 1);
         $xmlRows = implode('', $rows);
-        $sheet = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><cols><col min="1" max="1" width="16" customWidth="1"/><col min="2" max="3" width="22" customWidth="1"/><col min="4" max="4" width="30" customWidth="1"/><col min="5" max="5" width="10" customWidth="1"/><col min="6" max="8" width="19" customWidth="1"/></cols><sheetData>'.$xmlRows.'</sheetData><autoFilter ref="A'.$detailHeaderRow.':H'.$lastRow.'"/><mergeCells count="1"><mergeCell ref="A1:H1"/></mergeCells></worksheet>';
+        $sheet = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><cols><col min="1" max="1" width="14" customWidth="1"/><col min="2" max="2" width="12" customWidth="1"/><col min="3" max="4" width="20" customWidth="1"/><col min="5" max="5" width="30" customWidth="1"/><col min="6" max="6" width="10" customWidth="1"/><col min="7" max="9" width="19" customWidth="1"/></cols><sheetData>'.$xmlRows.'</sheetData><autoFilter ref="A'.$detailHeaderRow.':I'.$lastRow.'"/><mergeCells count="1"><mergeCell ref="A1:I1"/></mergeCells></worksheet>';
 
         return $this->zip([
             '[Content_Types].xml' => '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>',

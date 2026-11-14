@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Product;
+use App\Models\SalesReturn;
 use App\Models\StockTransaction;
 use App\Support\OperationalReportExcel;
 use App\Support\ProfitReportExcel;
@@ -245,6 +246,11 @@ class ReportController extends Controller
             ->orderBy('transaction_date')
             ->orderBy('id')
             ->get();
+        $returns = SalesReturn::with(['items.product', 'sale', 'user'])
+            ->whereBetween('returned_at', [$start->copy()->startOfDay(), $end->copy()->endOfDay()])
+            ->orderBy('returned_at')
+            ->orderBy('id')
+            ->get();
 
         $details = [];
         $legacyCostItems = 0;
@@ -257,11 +263,41 @@ class ReportController extends Controller
                 }
                 $revenue = (float) $item->price * $item->qty;
                 $cost = (float) $costPrice * $item->qty;
-                $details[] = compact('transaction', 'item', 'revenue', 'cost') + ['profit' => $revenue - $cost];
+                $details[] = [
+                    'kind' => 'Penjualan',
+                    'date' => $transaction->transaction_date->copy(),
+                    'reference' => $transaction->reference_no ?: 'PJ-'.str_pad((string) $transaction->id, 6, '0', STR_PAD_LEFT),
+                    'cashier' => $transaction->user?->name ?? 'User dihapus',
+                    'product' => $item->product?->name ?? 'Produk dihapus',
+                    'qty' => $item->qty,
+                    'event_id' => 'sale-'.$transaction->id,
+                    'revenue' => $revenue,
+                    'cost' => $cost,
+                    'profit' => $revenue - $cost,
+                ];
             }
         }
 
-        $dailyGroups = collect($details)->groupBy(fn ($detail) => $detail['transaction']->transaction_date->toDateString());
+        foreach ($returns as $salesReturn) {
+            foreach ($salesReturn->items as $item) {
+                $revenue = -1 * (float) $item->price * $item->qty;
+                $cost = -1 * (float) $item->cost_price * $item->qty;
+                $details[] = [
+                    'kind' => 'Retur',
+                    'date' => $salesReturn->returned_at->copy(),
+                    'reference' => $salesReturn->return_no,
+                    'cashier' => $salesReturn->user?->name ?? 'User dihapus',
+                    'product' => $item->product?->name ?? 'Produk dihapus',
+                    'qty' => $item->qty,
+                    'event_id' => 'return-'.$salesReturn->id,
+                    'revenue' => $revenue,
+                    'cost' => $cost,
+                    'profit' => $revenue - $cost,
+                ];
+            }
+        }
+
+        $dailyGroups = collect($details)->groupBy(fn ($detail) => $detail['date']->toDateString());
         $rows = collect();
         $cursor = $start->copy()->startOfDay();
         $lastDay = $end->copy()->startOfDay();
@@ -271,7 +307,7 @@ class ReportController extends Controller
             if ($dayDetails->isNotEmpty()) {
                 $rows->push([
                     'date' => $cursor->copy(),
-                    'transactions' => $dayDetails->pluck('transaction.id')->unique()->count(),
+                'transactions' => $dayDetails->pluck('event_id')->unique()->count(),
                     'revenue' => $dayDetails->sum('revenue'),
                     'cost' => $dayDetails->sum('cost'),
                     'profit' => $dayDetails->sum('profit'),
@@ -297,7 +333,7 @@ class ReportController extends Controller
             'end' => $end,
             'rows' => $rows,
             'details' => collect($details),
-            'totalTransactions' => $transactions->count(),
+            'totalTransactions' => $transactions->count() + $returns->count(),
             'totalRevenue' => $totalRevenue,
             'totalCost' => $totalCost,
             'totalProfit' => $totalRevenue - $totalCost,

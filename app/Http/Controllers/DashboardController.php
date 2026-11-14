@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Product;
+use App\Models\SalesReturn;
 use App\Models\StockTransaction;
 use Illuminate\Support\Facades\DB;
 
@@ -15,10 +16,13 @@ class DashboardController extends Controller
                 ->where('type', 'out')
                 ->where('user_id', auth()->id());
 
+            $todayReturns = SalesReturn::with('items')->where('user_id', auth()->id())->whereDate('returned_at', today())->get();
+            $todaySalesAmount = (clone $sales)->whereDate('transaction_date', today())->get()
+                ->sum(fn ($sale) => $sale->items->sum(fn ($item) => $item->qty * $item->price));
+
             return view('dashboard-cashier', [
                 'todaySales' => (clone $sales)->whereDate('transaction_date', today())->count(),
-                'todayRevenue' => (clone $sales)->whereDate('transaction_date', today())->get()
-                    ->sum(fn ($sale) => $sale->items->sum(fn ($item) => $item->qty * $item->price)),
+                'todayRevenue' => $todaySalesAmount - $todayReturns->sum('refund_total'),
                 'recentSales' => $sales->latest('transaction_date')->latest('id')->take(8)->get(),
             ]);
         }
@@ -33,7 +37,20 @@ class DashboardController extends Controller
             ->groupBy('year', 'month', 'stock_transactions.type')
             ->get()
             ->keyBy(fn ($row) => $row->year.'-'.$row->month.'-'.$row->type);
-        $series = fn ($type) => $months->map(fn ($month) => (int) ($movement->get($month->year.'-'.$month->month.'-'.$type)?->units ?? 0))->values();
+        $returnMovement = DB::table('sales_return_items')
+            ->join('sales_returns', 'sales_returns.id', '=', 'sales_return_items.sales_return_id')
+            ->where('sales_returns.returned_at', '>=', $monthStart)
+            ->selectRaw('YEAR(sales_returns.returned_at) as year, MONTH(sales_returns.returned_at) as month, SUM(sales_return_items.qty) as units')
+            ->groupBy('year', 'month')
+            ->get()
+            ->keyBy(fn ($row) => $row->year.'-'.$row->month);
+        $series = fn ($type) => $months->map(function ($month) use ($movement, $returnMovement, $type) {
+            $units = (int) ($movement->get($month->year.'-'.$month->month.'-'.$type)?->units ?? 0);
+            if ($type === 'in') {
+                $units += (int) ($returnMovement->get($month->year.'-'.$month->month)?->units ?? 0);
+            }
+            return $units;
+        })->values();
         $todayMovement = DB::table('stock_transaction_items')
             ->join('stock_transactions', 'stock_transactions.id', '=', 'stock_transaction_items.stock_transaction_id')
             ->whereDate('stock_transactions.transaction_date', today())
@@ -41,6 +58,10 @@ class DashboardController extends Controller
             ->selectRaw('stock_transactions.type, SUM(stock_transaction_items.qty) as units')
             ->groupBy('stock_transactions.type')
             ->pluck('units', 'type');
+        $todayReturnedUnits = DB::table('sales_return_items')
+            ->join('sales_returns', 'sales_returns.id', '=', 'sales_return_items.sales_return_id')
+            ->whereDate('sales_returns.returned_at', today())
+            ->sum('sales_return_items.qty');
         $todaySales = StockTransaction::with('items.product')
             ->where('type', 'out')->whereDate('transaction_date', today())->get();
         $todayRevenue = $todaySales->sum(fn ($sale) => $sale->items->sum(fn ($item) => $item->qty * $item->price));
@@ -48,12 +69,15 @@ class DashboardController extends Controller
             $cost = $item->cost_price ?? $item->product?->cost_price ?? 0;
             return $item->qty * ($item->price - $cost);
         }));
+        $todayReturns = SalesReturn::with('items')->whereDate('returned_at', today())->get();
+        $todayRevenue -= $todayReturns->sum('refund_total');
+        $todayProfit -= $todayReturns->sum(fn ($return) => $return->items->sum(fn ($item) => $item->qty * ((float) $item->price - (float) $item->cost_price)));
         $lowQuery = Product::where('minimum_stock', '>', 0)->whereColumn('current_stock', '<=', 'minimum_stock');
 
         return view('dashboard', [
             'todayRevenue' => $todayRevenue,
             'todayProfit' => $todayProfit,
-            'todayInboundUnits' => (int) ($todayMovement['in'] ?? 0),
+            'todayInboundUnits' => (int) ($todayMovement['in'] ?? 0) + (int) $todayReturnedUnits,
             'todayOutboundUnits' => (int) ($todayMovement['out'] ?? 0),
             'months' => $months,
             'inSeries' => $series('in'),

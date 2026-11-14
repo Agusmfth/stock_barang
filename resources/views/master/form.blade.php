@@ -12,7 +12,7 @@
     .price-preview{height:100%;min-height:75px;background:#f4f1ff;border:1px solid #e7e0ff;border-radius:11px;padding:13px 15px;display:flex;justify-content:space-between;align-items:center}
     .price-preview small{color:#6d6890}.price-preview strong{font-size:16px;color:#5539c6}
     .form-actions{padding:18px 28px;background:#fbfaff;display:flex;justify-content:space-between;align-items:center;gap:12px}
-    @media(max-width:600px){.product-form-head,.form-section{padding:20px}.form-actions{padding:16px 20px;flex-wrap:wrap}.form-actions .btn{flex:1}}
+    @media(max-width:600px){.product-form-head,.form-section{padding:20px}.product-form-head{align-items:flex-start!important;flex-direction:column}.product-form-head .badge{white-space:normal}.form-actions{padding:16px 20px;flex-wrap:wrap}.form-actions .btn{flex:1}}
 </style>
 
 @php($nextCode = 'BRG-'.str_pad((string)((\App\Models\Product::max('id') ?? 0) + 1),5,'0',STR_PAD_LEFT))
