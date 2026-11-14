@@ -33,8 +33,6 @@ class MasterDataController extends Controller
                 'name' => 'required|max:150',
                 'code' => ['required', 'max:50', Rule::unique('products')->ignore($id)],
                 'sku' => ['required', 'max:50', Rule::unique('products')->ignore($id)],
-                'warehouse_id' => 'required|exists:warehouses,id',
-                'supplier_id' => 'nullable|exists:suppliers,id',
                 'unit' => 'required|max:20',
                 'cost_price' => 'required|numeric|min:0',
                 'selling_price' => 'required|numeric|min:0',
@@ -56,8 +54,6 @@ class MasterDataController extends Controller
             'row' => $row ?? new $class,
             'title' => $title,
             'resource' => explode('.', $request->route()->getName())[0],
-            'suppliers' => Supplier::all(),
-            'warehouses' => Warehouse::all(),
         ];
     }
 
@@ -108,8 +104,6 @@ class MasterDataController extends Controller
             'rows' => $query->latest()->paginate(12)->withQueryString(),
             'title' => $title,
             'resource' => explode('.', $request->route()->getName())[0],
-            'suppliers' => $class === Product::class ? Supplier::orderBy('name')->get() : collect(),
-            'warehouses' => $class === Product::class ? Warehouse::orderBy('name')->get() : collect(),
         ]);
     }
 
@@ -118,9 +112,7 @@ class MasterDataController extends Controller
         [$class] = $this->meta($request);
         $row = $class::findOrFail($id);
 
-        if ($row instanceof Product) {
-            $row->load(['supplier', 'warehouse', 'histories' => fn ($query) => $query->latest('occurred_at')->limit(8)]);
-        }
+        if ($row instanceof Product) $row->load(['histories' => fn ($query) => $query->latest('occurred_at')->limit(8)]);
         if ($row instanceof Supplier || $row instanceof Warehouse) {
             $row->loadCount('products');
         }
@@ -141,6 +133,9 @@ class MasterDataController extends Controller
 
         if ($class === Product::class) {
             $data['barcode'] = 'AUTO-'.Str::uuid();
+            $warehouse = Warehouse::query()->first() ?? Warehouse::create(['name' => 'Toko Utama']);
+            $data['warehouse_id'] = $warehouse->id;
+            $data['supplier_id'] = null;
         }
 
         DB::transaction(function () use ($class, $data, $request): void {
@@ -166,6 +161,7 @@ class MasterDataController extends Controller
         [$class] = $this->meta($request);
         $this->normalizeMoney($request);
         $data = $request->validate($this->rules($class, $id));
+        if ($class === Product::class) $data['supplier_id'] = null;
 
         DB::transaction(function () use ($class, $data, $request, $id): void {
             $row = $class::lockForUpdate()->findOrFail($id);

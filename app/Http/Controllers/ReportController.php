@@ -4,32 +4,180 @@ namespace App\Http\Controllers;
 
 use App\Models\Product;
 use App\Models\StockTransaction;
+use App\Support\OperationalReportExcel;
+use App\Support\ProfitReportExcel;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class ReportController extends Controller
 {
-    public function __invoke(Request $request, string $type = 'inventory')
+    public function profit(Request $request)
     {
-        if ($type === 'inventory-history') {
-            return view('reports.index', ['rows' => $this->dailyInventoryHistory(), 'type' => $type]);
-        }
+        $data = $this->profitData($request);
 
-        $rows = $type === 'inventory'
-            ? Product::with(['supplier', 'warehouse'])->get()
-            : StockTransaction::with(['supplier', 'salesperson', 'items.product'])
-                ->where('type', $type === 'inbound' ? 'in' : 'out')->latest('transaction_date')->get();
-
-        return view('reports.index', compact('rows', 'type'));
+        return view('reports.profit', $data);
     }
 
-    private function dailyInventoryHistory(): array
+    public function exportProfit(Request $request, string $format)
+    {
+        abort_unless(in_array($format, ['pdf', 'excel'], true), 404);
+        $data = $this->profitData($request);
+        $filename = 'laporan-keuntungan-'.$data['period'].'-'.$data['start']->format('Ymd').'-'.$data['end']->format('Ymd');
+
+        if ($format === 'pdf') {
+            return Pdf::loadView('reports.exports.profit-pdf', $data)
+                ->setPaper('a4', 'landscape')
+                ->download($filename.'.pdf');
+        }
+
+        return response((new ProfitReportExcel())->make($data), 200, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'.xlsx"',
+        ]);
+    }
+
+    public function __invoke(Request $request, string $type = 'inventory')
+    {
+        return view('reports.index', $this->operationalData($request, $type));
+    }
+
+    public function print(Request $request, string $type)
+    {
+        return view('reports.print', $this->operationalData($request, $type));
+    }
+
+    public function export(Request $request, string $type, string $format)
+    {
+        abort_unless(in_array($format, ['pdf', 'excel'], true), 404);
+        $data = $this->operationalData($request, $type);
+        $filename = 'laporan-operasional-'.$type.'-'.now()->format('Ymd-His');
+
+        if ($format === 'pdf') {
+            return Pdf::loadView('reports.exports.operational-pdf', $data)
+                ->setPaper('a4', 'landscape')
+                ->download($filename.'.pdf');
+        }
+
+        return response((new OperationalReportExcel())->make($data), 200, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'.xlsx"',
+        ]);
+    }
+
+    private function operationalData(Request $request, string $type): array
+    {
+        abort_unless(in_array($type, ['inventory', 'inventory-history', 'inbound', 'outbound'], true), 404);
+
+        if ($type === 'inventory') {
+            $rows = Product::orderBy('name')->get();
+            $units = (int) $rows->sum('current_stock');
+
+            return [
+                'type' => $type,
+                'rows' => $rows,
+                'period' => null,
+                'periodLabel' => 'Posisi stok per '.today()->translatedFormat('d F Y'),
+                'totalProducts' => $rows->count(),
+                'totalUnits' => $units,
+                'totalValue' => $rows->sum(fn ($product) => $product->current_stock * (float) $product->cost_price),
+            ];
+        }
+
+        $range = $this->operationalRange($request);
+
+        if ($type === 'inventory-history') {
+            $rows = $this->dailyInventoryHistory($range['start'], $range['end']);
+
+            return $range + [
+                'type' => $type,
+                'rows' => $rows,
+                'totalInbound' => array_sum(array_column($rows, 'inbound')),
+                'totalOutbound' => array_sum(array_column($rows, 'outbound')),
+                'totalUnits' => $rows ? $rows[array_key_last($rows)]['units'] : 0,
+                'totalValue' => $rows ? $rows[array_key_last($rows)]['value'] : 0,
+            ];
+        }
+
+        $transactionType = $type === 'inbound' ? 'in' : 'out';
+        $rows = StockTransaction::with(['items.product', 'user'])
+            ->where('type', $transactionType)
+            ->whereBetween('transaction_date', [$range['start']->toDateString(), $range['end']->toDateString()])
+            ->latest('transaction_date')->latest('id')->get();
+        $items = $rows->flatMap->items;
+
+        return $range + [
+            'type' => $type,
+            'rows' => $rows,
+            'totalTransactions' => $rows->count(),
+            'totalUnits' => (int) $items->sum('qty'),
+            'totalAmount' => $items->sum(fn ($item) => $item->qty * (float) $item->price),
+        ];
+    }
+
+    private function operationalRange(Request $request): array
+    {
+        $filters = $request->validate([
+            'period' => ['nullable', Rule::in(['daily', 'weekly', 'monthly'])],
+            'date' => ['nullable', 'date'],
+            'month' => ['nullable', 'date_format:Y-m'],
+        ]);
+        $period = $filters['period'] ?? 'daily';
+        $selectedMonth = $filters['month'] ?? (isset($filters['date']) ? Carbon::parse($filters['date'])->format('Y-m') : today()->format('Y-m'));
+
+        if ($period === 'daily') {
+            $anchor = Carbon::parse($filters['date'] ?? today()->toDateString());
+            $start = $anchor->copy()->startOfDay();
+            $end = $anchor->copy()->endOfDay();
+        } elseif ($period === 'weekly') {
+            $defaultStart = today()->copy()->startOfWeek(Carbon::MONDAY);
+            if ($request->filled('date_from') || $request->filled('date_to')) {
+                $dates = $request->validate([
+                    'date_from' => ['required', 'date'],
+                    'date_to' => ['required', 'date', 'after_or_equal:date_from'],
+                ]);
+                $selectedFrom = $dates['date_from'];
+                $selectedTo = $dates['date_to'];
+            } else {
+                $selectedFrom = $defaultStart->toDateString();
+                $selectedTo = $defaultStart->copy()->endOfWeek(Carbon::SUNDAY)->toDateString();
+            }
+            $start = Carbon::parse($selectedFrom)->startOfDay();
+            $end = Carbon::parse($selectedTo)->endOfDay();
+            if ($start->copy()->startOfDay()->diffInDays($end->copy()->startOfDay()) > 6) {
+                throw ValidationException::withMessages(['date_to' => 'Rentang mingguan maksimal 7 hari.']);
+            }
+        } else {
+            $start = Carbon::parse($selectedMonth.'-01')->startOfDay();
+            $end = $start->copy()->endOfMonth()->endOfDay();
+        }
+
+        return [
+            'period' => $period,
+            'periodLabel' => match ($period) {
+                'weekly' => $start->translatedFormat('d M Y').' – '.$end->translatedFormat('d M Y'),
+                'monthly' => $start->translatedFormat('F Y'),
+                default => $start->translatedFormat('d F Y'),
+            },
+            'start' => $start,
+            'end' => $end,
+            'selectedDate' => $request->input('date', today()->toDateString()),
+            'selectedMonth' => $selectedMonth,
+            'selectedFrom' => $selectedFrom ?? $request->input('date_from', today()->copy()->startOfWeek(Carbon::MONDAY)->toDateString()),
+            'selectedTo' => $selectedTo ?? $request->input('date_to', today()->copy()->endOfWeek(Carbon::SUNDAY)->toDateString()),
+        ];
+    }
+
+    private function dailyInventoryHistory(Carbon $start, Carbon $end): array
     {
         $products = Product::with(['histories' => fn ($query) => $query->orderBy('occurred_at')])->get();
-        $today = now()->startOfDay();
         $rows = [];
 
-        foreach (range(29, 0) as $daysAgo) {
-            $date = $today->copy()->subDays($daysAgo);
+        $date = $start->copy()->startOfDay();
+        $lastDate = $end->copy()->startOfDay();
+        while ($date->lte($lastDate)) {
             $endOfDay = $date->copy()->endOfDay();
             $units = $value = $inbound = $outbound = 0;
 
@@ -43,8 +191,117 @@ class ReportController extends Controller
             }
 
             $rows[] = compact('date', 'units', 'value', 'inbound', 'outbound');
+            $date->addDay();
         }
 
         return $rows;
+    }
+
+    private function profitData(Request $request): array
+    {
+        $filters = $request->validate([
+            'period' => ['nullable', Rule::in(['daily', 'weekly', 'monthly'])],
+            'date' => ['nullable', 'date'],
+            'month' => ['nullable', 'date_format:Y-m'],
+        ]);
+        $period = $filters['period'] ?? 'daily';
+        $fallbackMonth = isset($filters['date']) ? Carbon::parse($filters['date'])->format('Y-m') : today()->format('Y-m');
+        $selectedMonth = $filters['month'] ?? $fallbackMonth;
+        $monthStart = Carbon::parse($selectedMonth.'-01')->startOfDay();
+
+        if ($period === 'daily') {
+            $anchor = Carbon::parse($filters['date'] ?? today()->toDateString());
+            $start = $anchor->copy()->startOfDay();
+            $end = $anchor->copy()->endOfDay();
+        } elseif ($period === 'weekly') {
+            $defaultStart = today()->copy()->startOfWeek(Carbon::MONDAY);
+            if ($request->filled('date_from') || $request->filled('date_to')) {
+                $range = $request->validate([
+                    'date_from' => ['required', 'date'],
+                    'date_to' => ['required', 'date', 'after_or_equal:date_from'],
+                ]);
+                $selectedFrom = $range['date_from'];
+                $selectedTo = $range['date_to'];
+            } else {
+                $selectedFrom = $defaultStart->toDateString();
+                $selectedTo = $defaultStart->copy()->endOfWeek(Carbon::SUNDAY)->toDateString();
+            }
+            $start = Carbon::parse($selectedFrom)->startOfDay();
+            $end = Carbon::parse($selectedTo)->endOfDay();
+            if ($start->copy()->startOfDay()->diffInDays($end->copy()->startOfDay()) > 6) {
+                throw ValidationException::withMessages(['date_to' => 'Rentang mingguan maksimal 7 hari.']);
+            }
+        } else {
+            $start = $monthStart;
+            $end = $monthStart->copy()->endOfMonth()->endOfDay();
+        }
+
+        $selectedFrom ??= $request->input('date_from', today()->copy()->startOfWeek(Carbon::MONDAY)->toDateString());
+        $selectedTo ??= $request->input('date_to', today()->copy()->endOfWeek(Carbon::SUNDAY)->toDateString());
+
+        $transactions = StockTransaction::with(['items.product', 'user'])
+            ->where('type', 'out')
+            ->whereBetween('transaction_date', [$start->toDateString(), $end->toDateString()])
+            ->orderBy('transaction_date')
+            ->orderBy('id')
+            ->get();
+
+        $details = [];
+        $legacyCostItems = 0;
+        foreach ($transactions as $transaction) {
+            foreach ($transaction->items as $item) {
+                $costPrice = $item->cost_price;
+                if ($costPrice === null) {
+                    $costPrice = $item->product?->cost_price ?? 0;
+                    $legacyCostItems++;
+                }
+                $revenue = (float) $item->price * $item->qty;
+                $cost = (float) $costPrice * $item->qty;
+                $details[] = compact('transaction', 'item', 'revenue', 'cost') + ['profit' => $revenue - $cost];
+            }
+        }
+
+        $dailyGroups = collect($details)->groupBy(fn ($detail) => $detail['transaction']->transaction_date->toDateString());
+        $rows = collect();
+        $cursor = $start->copy()->startOfDay();
+        $lastDay = $end->copy()->startOfDay();
+        while ($cursor->lte($lastDay)) {
+            $day = $cursor->toDateString();
+            $dayDetails = $dailyGroups->get($day, collect());
+            if ($dayDetails->isNotEmpty()) {
+                $rows->push([
+                    'date' => $cursor->copy(),
+                    'transactions' => $dayDetails->pluck('transaction.id')->unique()->count(),
+                    'revenue' => $dayDetails->sum('revenue'),
+                    'cost' => $dayDetails->sum('cost'),
+                    'profit' => $dayDetails->sum('profit'),
+                ]);
+            }
+            $cursor->addDay();
+        }
+
+        $totalRevenue = collect($details)->sum('revenue');
+        $totalCost = collect($details)->sum('cost');
+
+        return [
+            'period' => $period,
+            'periodLabel' => match ($period) {
+                'weekly' => $start->translatedFormat('d M Y').' – '.$end->translatedFormat('d M Y'),
+                'monthly' => $start->translatedFormat('F Y'),
+                default => $start->translatedFormat('d F Y'),
+            },
+            'selectedMonth' => $selectedMonth,
+            'selectedFrom' => $selectedFrom,
+            'selectedTo' => $selectedTo,
+            'start' => $start,
+            'end' => $end,
+            'rows' => $rows,
+            'details' => collect($details),
+            'totalTransactions' => $transactions->count(),
+            'totalRevenue' => $totalRevenue,
+            'totalCost' => $totalCost,
+            'totalProfit' => $totalRevenue - $totalCost,
+            'legacyCostItems' => $legacyCostItems,
+        ];
     }
 }

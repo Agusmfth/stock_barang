@@ -24,7 +24,7 @@ class UserManagementController extends Controller
 
     public function store(Request $request)
     {
-        $roles = $request->user()->hasRole('Super Admin') ? ['Super Admin', 'Admin'] : ['Admin'];
+        $roles = ['Kasir', 'Admin', 'Super Admin'];
         $data = $request->validate([
             'name' => 'required|string|max:150',
             'email' => 'required|email|max:255|unique:users,email',
@@ -48,7 +48,7 @@ class UserManagementController extends Controller
             'name' => 'required|string|max:150',
             'email' => ['required', 'email', 'max:255', Rule::unique('users')->ignore($user->id)],
             'phone' => 'nullable|string|max:30',
-            'role' => ['required', Rule::in($isSuperAdmin ? ['Super Admin', 'Admin'] : ['Admin'])],
+            'role' => ['required', Rule::in(['Kasir', 'Admin', 'Super Admin'])],
             'is_active' => $isSuperAdmin ? 'required|boolean' : 'nullable|boolean',
             'password' => 'nullable|string|min:8|confirmed',
         ]);
@@ -59,7 +59,7 @@ class UserManagementController extends Controller
         }
 
         if (!$isSuperAdmin) {
-            $data['role'] = $user->role === 'Super Admin' ? 'Super Admin' : 'Admin';
+            $data['role'] = $user->role;
             $data['is_active'] = $user->is_active;
         }
 
