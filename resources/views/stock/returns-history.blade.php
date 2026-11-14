@@ -18,6 +18,6 @@
             <tr><td colspan="7" class="text-center py-5 text-secondary"><i class="fa-solid fa-rotate-left fs-3 d-block mb-2"></i>Belum ada retur penjualan.</td></tr>
         @endforelse
     </tbody></table></div>
-    <div class="p-4">{{$returns->links()}}</div>
+    @include('partials.table-pagination',['paginator'=>$returns,'perPage'=>$perPage])
 </div>
 @endsection

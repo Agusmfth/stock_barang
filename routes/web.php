@@ -1,5 +1,5 @@
 <?php
-use App\Http\Controllers\{ProfileController,DashboardController,MasterDataController,StockTransactionController,SalesReturnController,ReportController,UserManagementController};
+use App\Http\Controllers\{ProfileController,DashboardController,MasterDataController,StockTransactionController,SalesReturnController,ReportController,UserManagementController,ExpenseController};
 use Illuminate\Support\Facades\Route;
 Route::redirect('/', '/dashboard');
 Route::middleware('auth')->group(function(){
@@ -7,6 +7,8 @@ Route::middleware('auth')->group(function(){
  Route::get('/profile',[ProfileController::class,'edit'])->name('profile.edit');Route::patch('/profile',[ProfileController::class,'update'])->name('profile.update');Route::delete('/profile',[ProfileController::class,'destroy'])->name('profile.destroy');
  Route::middleware('role:Super Admin,Admin')->group(function(){
   Route::resource('products',MasterDataController::class)->parameters(['products'=>'product']);
+  Route::get('/expenses/profit-preview',[ExpenseController::class,'profitPreview'])->name('expenses.profit-preview');
+  Route::resource('expenses',ExpenseController::class)->except(['show']);
   Route::get('/stock/inbound',[StockTransactionController::class,'inbound'])->name('stock.inbound');Route::post('/stock/inbound',[StockTransactionController::class,'storeInbound'])->name('stock.inbound.store');Route::get('/reports/profit',[ReportController::class,'profit'])->name('reports.profit');Route::get('/reports/profit/download/{format}',[ReportController::class,'exportProfit'])->name('reports.profit.export');Route::get('/reports/print/{type}',[ReportController::class,'print'])->name('reports.print');Route::get('/reports/export/{type}/{format}',[ReportController::class,'export'])->name('reports.export');Route::get('/reports/{type?}',ReportController::class)->name('reports');
  });
  Route::middleware('role:Super Admin')->group(function(){Route::get('/users',[UserManagementController::class,'index'])->name('users.index');Route::post('/users',[UserManagementController::class,'store'])->name('users.store');Route::put('/users/{user}',[UserManagementController::class,'update'])->name('users.update');Route::delete('/users/{user}',[UserManagementController::class,'destroy'])->name('users.destroy');});

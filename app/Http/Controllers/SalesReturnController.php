@@ -141,7 +141,10 @@ class SalesReturnController extends Controller
             $query->where('user_id', $request->user()->id);
         }
 
-        return view('stock.returns-history', ['returns' => $query->paginate(20)]);
+        $perPage = (int) $request->input('per_page', 10);
+        abort_unless(in_array($perPage, [10, 25, 50, 100], true), 422);
+
+        return view('stock.returns-history', ['returns' => $query->paginate($perPage)->withQueryString(), 'perPage' => $perPage]);
     }
 
     private function authorizeSale(Request $request, StockTransaction $sale): void

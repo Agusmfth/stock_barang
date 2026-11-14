@@ -19,7 +19,10 @@ class UserManagementController extends Controller
                 ->orWhere('email', 'like', "%{$search}%"));
         }
 
-        return view('users.index', ['users' => $query->latest()->paginate(12)->withQueryString()]);
+        $perPage = (int) $request->input('per_page', 10);
+        abort_unless(in_array($perPage, [10, 25, 50, 100], true), 422);
+
+        return view('users.index', ['users' => $query->latest()->paginate($perPage)->withQueryString(), 'perPage' => $perPage]);
     }
 
     public function store(Request $request)

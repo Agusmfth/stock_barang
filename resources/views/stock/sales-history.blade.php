@@ -71,6 +71,6 @@
             <div class="text-center py-5 text-secondary"><i class="fa-solid fa-receipt fs-3 d-block mb-2"></i>Belum ada penjualan yang tercatat.</div>
         @endforelse
     </div>
-    <div class="p-4">{{$sales->links()}}</div>
+    @include('partials.table-pagination',['paginator'=>$sales,'perPage'=>$perPage])
 </div></div>
 @endsection

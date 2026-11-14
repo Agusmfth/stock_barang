@@ -11,32 +11,32 @@ class ProfitReportExcel
         $rows[] = $this->row($rowNumber++, [['STOCKFLOW ERP — LAPORAN KEUNTUNGAN', 's' => 1]]);
         $rows[] = $this->row($rowNumber++, [['Periode: '.$data['periodLabel'].' | Dibuat: '.now()->format('d/m/Y H:i').' WIB']]);
         $rowNumber++;
-        $rows[] = $this->row($rowNumber++, [['OMZET', 's' => 2], ['MODAL BARANG TERJUAL', 's' => 2], ['LABA KOTOR', 's' => 2], ['JUMLAH TRANSAKSI', 's' => 2]]);
-        $rows[] = $this->row($rowNumber++, [[$data['totalRevenue'], 'n' => true, 's' => 3], [$data['totalCost'], 'n' => true, 's' => 3], [$data['totalProfit'], 'n' => true, 's' => 4], [$data['totalTransactions'], 'n' => true, 's' => 2]]);
+        $rows[] = $this->row($rowNumber++, [['OMZET', 's' => 2], ['MODAL TERJUAL', 's' => 2], ['LABA KOTOR', 's' => 2], ['PENGELUARAN', 's' => 2], ['LABA BERSIH', 's' => 2], ['TRANSAKSI', 's' => 2]]);
+        $rows[] = $this->row($rowNumber++, [[$data['totalRevenue'], 'n' => true, 's' => 3], [$data['totalCost'], 'n' => true, 's' => 3], [$data['totalProfit'], 'n' => true, 's' => 3], [$data['totalExpenses'], 'n' => true, 's' => 3], [$data['totalNetProfit'], 'n' => true, 's' => 4], [$data['totalTransactions'], 'n' => true, 's' => 2]]);
         $rowNumber += 2;
 
         $rows[] = $this->row($rowNumber++, [['RINGKASAN PER HARI', 's' => 5]]);
-        $rows[] = $this->row($rowNumber++, [['Tanggal', 's' => 6], ['Transaksi', 's' => 6], ['Omzet (Rp)', 's' => 6], ['Modal (Rp)', 's' => 6], ['Laba Kotor (Rp)', 's' => 6]]);
+        $rows[] = $this->row($rowNumber++, [['Tanggal', 's' => 6], ['Transaksi', 's' => 6], ['Omzet (Rp)', 's' => 6], ['Modal (Rp)', 's' => 6], ['Laba Kotor (Rp)', 's' => 6], ['Pengeluaran (Rp)', 's' => 6], ['Laba Bersih (Rp)', 's' => 6]]);
         foreach ($data['rows'] as $day) {
-            $rows[] = $this->row($rowNumber++, [[$day['date']->format('d/m/Y')], [$day['transactions'], 'n' => true], [$day['revenue'], 'n' => true, 's' => 3], [$day['cost'], 'n' => true, 's' => 3], [$day['profit'], 'n' => true, 's' => 4]]);
+            $rows[] = $this->row($rowNumber++, [[$day['date']->format('d/m/Y')], [$day['transactions'], 'n' => true], [$day['revenue'], 'n' => true, 's' => 3], [$day['cost'], 'n' => true, 's' => 3], [$day['profit'], 'n' => true, 's' => 3], [$day['expenses'], 'n' => true, 's' => 3], [$day['net_profit'], 'n' => true, 's' => 4]]);
         }
-        $rows[] = $this->row($rowNumber++, [['Total', 's' => 6], [$data['totalTransactions'], 'n' => true, 's' => 6], [$data['totalRevenue'], 'n' => true, 's' => 3], [$data['totalCost'], 'n' => true, 's' => 3], [$data['totalProfit'], 'n' => true, 's' => 4]]);
+        $rows[] = $this->row($rowNumber++, [['Total', 's' => 6], [$data['totalTransactions'], 'n' => true, 's' => 6], [$data['totalRevenue'], 'n' => true, 's' => 3], [$data['totalCost'], 'n' => true, 's' => 3], [$data['totalProfit'], 'n' => true, 's' => 3], [$data['totalExpenses'], 'n' => true, 's' => 3], [$data['totalNetProfit'], 'n' => true, 's' => 4]]);
         $rowNumber += 2;
 
         $detailHeaderRow = $rowNumber;
         $rows[] = $this->row($rowNumber++, [['RINCIAN PENJUALAN', 's' => 5]]);
         $detailHeaderRow++;
-        $rows[] = $this->row($rowNumber++, array_map(fn ($label) => [$label, 's' => 6], ['Tanggal', 'Jenis', 'No. Transaksi', 'Kasir', 'Produk', 'Qty', 'Omzet (Rp)', 'Modal (Rp)', 'Laba (Rp)']));
+        $rows[] = $this->row($rowNumber++, array_map(fn ($label) => [$label, 's' => 6], ['Tanggal', 'Jenis', 'No. Transaksi', 'Dicatat Oleh', 'Barang / Keterangan', 'Qty', 'Omzet (Rp)', 'Modal (Rp)', 'Pengeluaran (Rp)', 'Dampak Laba (Rp)']));
         foreach ($data['details'] as $detail) {
             $rows[] = $this->row($rowNumber++, [
                 [$detail['date']->format('d/m/Y')], [$detail['kind']], [$detail['reference']], [$detail['cashier']],
                 [$detail['product']], [$detail['qty'], 'n' => true], [$detail['revenue'], 'n' => true, 's' => 3],
-                [$detail['cost'], 'n' => true, 's' => 3], [$detail['profit'], 'n' => true, 's' => 4],
+                [$detail['cost'], 'n' => true, 's' => 3], [$detail['expense'], 'n' => true, 's' => 3], [$detail['profit'], 'n' => true, 's' => 4],
             ]);
         }
         $lastRow = max($detailHeaderRow, $rowNumber - 1);
         $xmlRows = implode('', $rows);
-        $sheet = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><cols><col min="1" max="1" width="14" customWidth="1"/><col min="2" max="2" width="12" customWidth="1"/><col min="3" max="4" width="20" customWidth="1"/><col min="5" max="5" width="30" customWidth="1"/><col min="6" max="6" width="10" customWidth="1"/><col min="7" max="9" width="19" customWidth="1"/></cols><sheetData>'.$xmlRows.'</sheetData><autoFilter ref="A'.$detailHeaderRow.':I'.$lastRow.'"/><mergeCells count="1"><mergeCell ref="A1:I1"/></mergeCells></worksheet>';
+        $sheet = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><cols><col min="1" max="1" width="14" customWidth="1"/><col min="2" max="2" width="14" customWidth="1"/><col min="3" max="4" width="20" customWidth="1"/><col min="5" max="5" width="30" customWidth="1"/><col min="6" max="6" width="10" customWidth="1"/><col min="7" max="10" width="19" customWidth="1"/></cols><sheetData>'.$xmlRows.'</sheetData><autoFilter ref="A'.$detailHeaderRow.':J'.$lastRow.'"/><mergeCells count="1"><mergeCell ref="A1:J1"/></mergeCells></worksheet>';
 
         return $this->zip([
             '[Content_Types].xml' => '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>',

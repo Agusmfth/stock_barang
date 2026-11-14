@@ -21,7 +21,7 @@
 </style>
 
 <section class="profit-hero mb-4 d-flex flex-wrap justify-content-between align-items-center gap-3">
-    <div><h2>Keuntungan Penjualan</h2><p>Ringkasan omzet, modal barang terjual, dan laba kotor.</p></div>
+    <div><h2>Laporan Laba Bersih</h2><p>Ringkasan omzet, modal barang terjual, pengeluaran, dan laba bersih.</p></div>
     <div class="d-flex flex-wrap gap-2 no-print">
         <a class="btn btn-light" href="{{route('reports.profit.export',['format'=>'pdf','period'=>$period,'date'=>request('date',today()->toDateString()),'date_from'=>$selectedFrom,'date_to'=>$selectedTo,'month'=>$selectedMonth])}}"><i class="fa-regular fa-file-pdf me-2 text-danger"></i>Unduh PDF</a>
         <a class="btn btn-outline-light" href="{{route('reports.profit.export',['format'=>'excel','period'=>$period,'date'=>request('date',today()->toDateString()),'date_from'=>$selectedFrom,'date_to'=>$selectedTo,'month'=>$selectedMonth])}}"><i class="fa-regular fa-file-excel me-2"></i>Unduh Excel</a>
@@ -43,30 +43,34 @@
 @if($legacyCostItems > 0)<div class="alert alert-warning border-0"><i class="fa-solid fa-circle-info me-2"></i>{{$legacyCostItems}} item transaksi lama belum memiliki snapshot harga modal. Perhitungannya memakai harga modal produk saat ini.</div>@endif
 
 <div class="row g-3 mb-4">
-    <div class="col-sm-6 col-xl-3"><div class="profit-card"><small>Omzet</small><strong>Rp {{number_format($totalRevenue,0,',','.')}}</strong></div></div>
-    <div class="col-sm-6 col-xl-3"><div class="profit-card"><small>Modal Barang Terjual</small><strong>Rp {{number_format($totalCost,0,',','.')}}</strong></div></div>
-    <div class="col-sm-6 col-xl-3"><div class="profit-card profit-main"><small>Laba Kotor</small><strong>Rp {{number_format($totalProfit,0,',','.')}}</strong></div></div>
-    <div class="col-sm-6 col-xl-3"><div class="profit-card"><small>Jumlah Transaksi</small><strong>{{$totalTransactions}}</strong></div></div>
+    <div class="col-sm-6 col-xl-2"><div class="profit-card"><small>Omzet Bersih</small><strong>Rp {{number_format($totalRevenue,0,',','.')}}</strong></div></div>
+    <div class="col-sm-6 col-xl-2"><div class="profit-card"><small>Modal Terjual</small><strong>Rp {{number_format($totalCost,0,',','.')}}</strong></div></div>
+    <div class="col-sm-6 col-xl-2"><div class="profit-card"><small>Laba Kotor</small><strong>Rp {{number_format($totalProfit,0,',','.')}}</strong></div></div>
+    <div class="col-sm-6 col-xl-2"><div class="profit-card"><small>Pengeluaran</small><strong class="text-danger">Rp {{number_format($totalExpenses,0,',','.')}}</strong></div></div>
+    <div class="col-sm-6 col-xl-2"><div class="profit-card profit-main"><small>Laba Bersih</small><strong>Rp {{number_format($totalNetProfit,0,',','.')}}</strong></div></div>
+    <div class="col-sm-6 col-xl-2"><div class="profit-card"><small>Transaksi Penjualan</small><strong>{{$totalTransactions}}</strong></div></div>
 </div>
 
-<div class="card mb-4"><div class="d-flex flex-wrap justify-content-between align-items-center gap-2 p-4 border-bottom"><div><div class="section-card-title">Ringkasan {{$period==='daily'?'Harian':($period==='weekly'?'Mingguan':'Bulanan')}}</div><small class="text-secondary">Laba kotor dihitung dari omzet penjualan dikurangi modal barang.</small></div><span class="badge badge-soft">{{$periodLabel}}</span></div>
-    <div class="table-responsive"><table class="table align-middle profit-table"><colgroup><col style="width:22%"><col style="width:14%"><col style="width:21%"><col style="width:21%"><col style="width:22%"></colgroup><thead><tr><th>Tanggal</th><th class="text-end">Transaksi</th><th class="text-end">Omzet</th><th class="text-end">Modal</th><th class="text-end">Laba Kotor</th></tr></thead><tbody>
+<div class="card mb-4"><div class="d-flex flex-wrap justify-content-between align-items-center gap-2 p-4 border-bottom"><div><div class="section-card-title">Ringkasan {{$period==='daily'?'Harian':($period==='weekly'?'Mingguan':'Bulanan')}}</div><small class="text-secondary">Laba bersih dihitung dari laba kotor dikurangi pengeluaran.</small></div><span class="badge badge-soft">{{$periodLabel}}</span></div>
+    <div class="table-responsive"><table class="table align-middle profit-table"><colgroup><col style="width:16%"><col style="width:10%"><col style="width:15%"><col style="width:15%"><col style="width:15%"><col style="width:14%"><col style="width:15%"></colgroup><thead><tr><th>Tanggal</th><th class="text-end">Transaksi</th><th class="text-end">Omzet</th><th class="text-end">Modal</th><th class="text-end">Laba Kotor</th><th class="text-end">Pengeluaran</th><th class="text-end">Laba Bersih</th></tr></thead><tbody>
         @forelse($rows as $row)
-            <tr><td class="fw-semibold">{{$row['date']->translatedFormat('d M Y')}}</td><td class="num">{{$row['transactions']}}</td><td class="num">Rp {{number_format($row['revenue'],0,',','.')}}</td><td class="num">Rp {{number_format($row['cost'],0,',','.')}}</td><td class="num fw-bold {{$row['profit']<0?'text-danger':'text-success'}}">Rp {{number_format($row['profit'],0,',','.')}}</td></tr>
+            <tr><td class="fw-semibold">{{$row['date']->translatedFormat('d M Y')}}</td><td class="num">{{$row['transactions']}}</td><td class="num">Rp {{number_format($row['revenue'],0,',','.')}}</td><td class="num">Rp {{number_format($row['cost'],0,',','.')}}</td><td class="num">Rp {{number_format($row['profit'],0,',','.')}}</td><td class="num text-danger">Rp {{number_format($row['expenses'],0,',','.')}}</td><td class="num fw-bold {{$row['net_profit']<0?'text-danger':'text-success'}}">Rp {{number_format($row['net_profit'],0,',','.')}}</td></tr>
         @empty
-            <tr><td colspan="5" class="text-center py-5 text-secondary">Belum ada data penjualan pada periode ini.</td></tr>
+            <tr><td colspan="7" class="text-center py-5 text-secondary">Belum ada penjualan atau pengeluaran pada periode ini.</td></tr>
         @endforelse
-    </tbody><tfoot><tr><td>Total</td><td class="num">{{$totalTransactions}}</td><td class="num">Rp {{number_format($totalRevenue,0,',','.')}}</td><td class="num">Rp {{number_format($totalCost,0,',','.')}}</td><td class="num {{$totalProfit<0?'text-danger':'text-success'}}">Rp {{number_format($totalProfit,0,',','.')}}</td></tr></tfoot></table></div>
+    </tbody><tfoot><tr><td>Total</td><td class="num">{{$totalTransactions}}</td><td class="num">Rp {{number_format($totalRevenue,0,',','.')}}</td><td class="num">Rp {{number_format($totalCost,0,',','.')}}</td><td class="num">Rp {{number_format($totalProfit,0,',','.')}}</td><td class="num text-danger">Rp {{number_format($totalExpenses,0,',','.')}}</td><td class="num {{$totalNetProfit<0?'text-danger':'text-success'}}">Rp {{number_format($totalNetProfit,0,',','.')}}</td></tr></tfoot></table></div>
+    @include('partials.table-pagination',['paginator'=>$rows,'perPage'=>$rowsPerPage,'pageName'=>'page_summary','perPageKey'=>'per_page_summary'])
 </div>
 
-<div class="card"><div class="p-4 border-bottom"><div class="section-card-title">Rincian Penjualan</div><small class="text-secondary">Detail transaksi yang masuk ke perhitungan laporan.</small></div>
-    <div class="table-responsive"><table class="table align-middle profit-table profit-details"><colgroup><col style="width:10%"><col style="width:9%"><col style="width:14%"><col style="width:12%"><col style="width:17%"><col style="width:6%"><col style="width:12%"><col style="width:10%"><col style="width:10%"></colgroup><thead><tr><th>Waktu</th><th>Jenis</th><th>No. Transaksi</th><th>Kasir</th><th>Produk</th><th class="text-end">Qty</th><th class="text-end">Omzet</th><th class="text-end">Modal</th><th class="text-end">Laba</th></tr></thead><tbody>
+<div class="card"><div class="p-4 border-bottom"><div class="section-card-title">Rincian Transaksi & Pengeluaran</div><small class="text-secondary">Penjualan, retur, dan pengeluaran yang membentuk laba bersih.</small></div>
+    <div class="table-responsive"><table class="table align-middle profit-table profit-details"><colgroup><col style="width:9%"><col style="width:10%"><col style="width:11%"><col style="width:10%"><col style="width:16%"><col style="width:5%"><col style="width:10%"><col style="width:9%"><col style="width:10%"><col style="width:10%"></colgroup><thead><tr><th>Waktu</th><th>Jenis</th><th>No. Transaksi</th><th>Kasir / Admin</th><th>Barang / Keterangan</th><th class="text-end">Qty</th><th class="text-end">Omzet</th><th class="text-end">Modal</th><th class="text-end">Pengeluaran</th><th class="text-end">Dampak Laba</th></tr></thead><tbody>
         @forelse($details as $detail)
-            <tr class="{{$detail['kind']==='Retur'?'profit-return':''}}"><td>{{$detail['date']->format('d/m/Y')}}<small class="d-block text-secondary">{{$detail['date']->format('H:i')}}</small></td><td><span class="badge {{$detail['kind']==='Retur'?'text-bg-warning':'badge-soft'}}">{{$detail['kind']}}</span></td><td>{{$detail['reference']}}</td><td>{{$detail['cashier']}}</td><td>{{$detail['product']}}</td><td class="num">{{$detail['qty']}}</td><td class="num">Rp {{number_format($detail['revenue'],0,',','.')}}</td><td class="num">Rp {{number_format($detail['cost'],0,',','.')}}</td><td class="num fw-semibold {{$detail['profit']<0?'text-danger':'text-success'}}">Rp {{number_format($detail['profit'],0,',','.')}}</td></tr>
+            <tr class="{{$detail['kind']==='Retur'?'profit-return':($detail['kind']==='Pengeluaran'?'table-warning':'')}}"><td>{{$detail['date']->format('d/m/Y')}}<small class="d-block text-secondary">{{$detail['date']->format('H:i')}}</small></td><td><span class="badge {{$detail['kind']==='Retur'?'text-bg-warning':($detail['kind']==='Pengeluaran'?'text-bg-danger':'badge-soft')}}">{{$detail['kind']}}</span></td><td>{{$detail['reference']}}</td><td>{{$detail['cashier']}}</td><td>{{$detail['product']}}</td><td class="num">{{$detail['qty']}}</td><td class="num">Rp {{number_format($detail['revenue'],0,',','.')}}</td><td class="num">Rp {{number_format($detail['cost'],0,',','.')}}</td><td class="num text-danger">Rp {{number_format($detail['expense'],0,',','.')}}</td><td class="num fw-semibold {{$detail['profit']<0?'text-danger':'text-success'}}">Rp {{number_format($detail['profit'],0,',','.')}}</td></tr>
         @empty
-            <tr><td colspan="9" class="text-center py-5 text-secondary">Belum ada rincian penjualan atau retur.</td></tr>
+            <tr><td colspan="10" class="text-center py-5 text-secondary">Belum ada rincian penjualan, retur, atau pengeluaran.</td></tr>
         @endforelse
     </tbody></table></div>
+    @include('partials.table-pagination',['paginator'=>$details,'perPage'=>$detailsPerPage,'pageName'=>'page_details','perPageKey'=>'per_page_details'])
 </div>
 @endsection
 @push('scripts')

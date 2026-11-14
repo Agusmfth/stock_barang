@@ -85,6 +85,7 @@
         @foreach($rows as $transaction)@foreach($transaction->items as $item)<tr><td>{{$transaction->transaction_date->format('d/m/Y')}}</td><td>{{$transaction->reference_no?:'TR-'.$transaction->id}}</td><td>{{$item->product?->name??'Produk dihapus'}}</td><td>{{$item->qty}} {{$item->product?->unit}}</td><td>Rp {{number_format($item->price,0,',','.')}}</td><td class="fw-semibold">Rp {{number_format($item->qty*$item->price,0,',','.')}}</td><td>{{$transaction->user?->name??'-'}}</td></tr>@endforeach @endforeach
     @endif
     </tbody></table></div>
+    @include('partials.table-pagination',['paginator'=>$rows,'perPage'=>$perPage])
 </div></div>
 
 @if($type!=='inventory')

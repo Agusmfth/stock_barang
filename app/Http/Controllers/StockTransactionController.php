@@ -136,7 +136,13 @@ class StockTransactionController extends Controller
 
     public function storeInbound(Request $request) { return $this->save($request, 'in'); }
     public function storeOutbound(Request $request) { return $this->save($request, 'out'); }
-    public function history() { return view('stock.history', ['rows' => StockHistory::with(['product', 'user'])->latest('occurred_at')->paginate(20)]); }
+    public function history(Request $request)
+    {
+        $perPage = (int) $request->input('per_page', 10);
+        abort_unless(in_array($perPage, [10, 25, 50, 100], true), 422);
+
+        return view('stock.history', ['rows' => StockHistory::with(['product', 'user'])->latest('occurred_at')->paginate($perPage)->withQueryString(), 'perPage' => $perPage]);
+    }
 
     public function salesHistory(Request $request)
     {
@@ -149,6 +155,9 @@ class StockTransactionController extends Controller
             $query->where('user_id', $request->user()->id);
         }
 
-        return view('stock.sales-history', ['sales' => $query->paginate(20)]);
+        $perPage = (int) $request->input('per_page', 10);
+        abort_unless(in_array($perPage, [10, 25, 50, 100], true), 422);
+
+        return view('stock.sales-history', ['sales' => $query->paginate($perPage)->withQueryString(), 'perPage' => $perPage]);
     }
 }

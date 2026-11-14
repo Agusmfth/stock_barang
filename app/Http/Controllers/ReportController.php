@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Product;
+use App\Models\Expense;
 use App\Models\SalesReturn;
 use App\Models\StockTransaction;
 use App\Support\OperationalReportExcel;
@@ -10,6 +11,7 @@ use App\Support\ProfitReportExcel;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -18,6 +20,24 @@ class ReportController extends Controller
     public function profit(Request $request)
     {
         $data = $this->profitData($request);
+
+        foreach ([
+            'rows' => ['page_summary', 'per_page_summary'],
+            'details' => ['page_details', 'per_page_details'],
+        ] as $key => [$pageName, $perPageKey]) {
+            $perPage = (int) $request->input($perPageKey, 10);
+            abort_unless(in_array($perPage, [10, 25, 50, 100], true), 422);
+            $items = collect($data[$key]);
+            $page = LengthAwarePaginator::resolveCurrentPage($pageName);
+            $data[$key] = new LengthAwarePaginator(
+                $items->forPage($page, $perPage)->values(),
+                $items->count(),
+                $perPage,
+                $page,
+                ['path' => $request->url(), 'query' => $request->query(), 'pageName' => $pageName]
+            );
+            $data[$key.'PerPage'] = $perPage;
+        }
 
         return view('reports.profit', $data);
     }
@@ -42,7 +62,22 @@ class ReportController extends Controller
 
     public function __invoke(Request $request, string $type = 'inventory')
     {
-        return view('reports.index', $this->operationalData($request, $type));
+        $perPage = (int) $request->input('per_page', 10);
+        abort_unless(in_array($perPage, [10, 25, 50, 100], true), 422);
+
+        $data = $this->operationalData($request, $type);
+        $rows = collect($data['rows']);
+        $page = LengthAwarePaginator::resolveCurrentPage();
+        $data['rows'] = new LengthAwarePaginator(
+            $rows->forPage($page, $perPage)->values(),
+            $rows->count(),
+            $perPage,
+            $page,
+            ['path' => $request->url(), 'query' => $request->query()]
+        );
+        $data['perPage'] = $perPage;
+
+        return view('reports.index', $data);
     }
 
     public function print(Request $request, string $type)
@@ -251,6 +286,11 @@ class ReportController extends Controller
             ->orderBy('returned_at')
             ->orderBy('id')
             ->get();
+        $expenses = Expense::with('user')
+            ->whereBetween('expense_date', [$start->toDateString(), $end->toDateString()])
+            ->orderBy('expense_date')
+            ->orderBy('id')
+            ->get();
 
         $details = [];
         $legacyCostItems = 0;
@@ -273,6 +313,7 @@ class ReportController extends Controller
                     'event_id' => 'sale-'.$transaction->id,
                     'revenue' => $revenue,
                     'cost' => $cost,
+                    'expense' => 0,
                     'profit' => $revenue - $cost,
                 ];
             }
@@ -292,10 +333,29 @@ class ReportController extends Controller
                     'event_id' => 'return-'.$salesReturn->id,
                     'revenue' => $revenue,
                     'cost' => $cost,
+                    'expense' => 0,
                     'profit' => $revenue - $cost,
                 ];
             }
         }
+
+        foreach ($expenses as $expense) {
+            $amount = (float) $expense->amount;
+            $details[] = [
+                'kind' => 'Pengeluaran',
+                'date' => $expense->expense_date->copy()->startOfDay(),
+                'reference' => 'BY-'.str_pad((string) $expense->id, 6, '0', STR_PAD_LEFT),
+                'cashier' => $expense->user?->name ?? '—',
+                'product' => $expense->description,
+                'qty' => 1,
+                'event_id' => 'expense-'.$expense->id,
+                'revenue' => 0,
+                'cost' => 0,
+                'expense' => $amount,
+                'profit' => -$amount,
+            ];
+        }
+        usort($details, fn ($left, $right) => $left['date']->getTimestamp() <=> $right['date']->getTimestamp());
 
         $dailyGroups = collect($details)->groupBy(fn ($detail) => $detail['date']->toDateString());
         $rows = collect();
@@ -307,10 +367,12 @@ class ReportController extends Controller
             if ($dayDetails->isNotEmpty()) {
                 $rows->push([
                     'date' => $cursor->copy(),
-                'transactions' => $dayDetails->pluck('event_id')->unique()->count(),
+                    'transactions' => $dayDetails->where('kind', '!=', 'Pengeluaran')->pluck('event_id')->unique()->count(),
                     'revenue' => $dayDetails->sum('revenue'),
                     'cost' => $dayDetails->sum('cost'),
-                    'profit' => $dayDetails->sum('profit'),
+                    'profit' => $dayDetails->where('kind', '!=', 'Pengeluaran')->sum('profit'),
+                    'expenses' => $dayDetails->sum('expense'),
+                    'net_profit' => $dayDetails->sum('profit'),
                 ]);
             }
             $cursor->addDay();
@@ -318,6 +380,7 @@ class ReportController extends Controller
 
         $totalRevenue = collect($details)->sum('revenue');
         $totalCost = collect($details)->sum('cost');
+        $totalExpenses = collect($details)->sum('expense');
 
         return [
             'period' => $period,
@@ -337,6 +400,8 @@ class ReportController extends Controller
             'totalRevenue' => $totalRevenue,
             'totalCost' => $totalCost,
             'totalProfit' => $totalRevenue - $totalCost,
+            'totalExpenses' => $totalExpenses,
+            'totalNetProfit' => $totalRevenue - $totalCost - $totalExpenses,
             'legacyCostItems' => $legacyCostItems,
         ];
     }

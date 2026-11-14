@@ -100,8 +100,12 @@ class MasterDataController extends Controller
             $query->where('name', 'like', "%{$search}%");
         }
 
+        $perPage = (int) $request->input('per_page', 10);
+        abort_unless(in_array($perPage, [10, 25, 50, 100], true), 422);
+
         return view('master.index', [
-            'rows' => $query->latest()->paginate(12)->withQueryString(),
+            'rows' => $query->latest()->paginate($perPage)->withQueryString(),
+            'perPage' => $perPage,
             'title' => $title,
             'resource' => explode('.', $request->route()->getName())[0],
         ]);
